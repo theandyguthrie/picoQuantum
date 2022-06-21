@@ -69,6 +69,7 @@ class ABCDModel():
         return self.S21
         
        
+
     
     
     def calculate_photonic_power(self, Ts, Td):
