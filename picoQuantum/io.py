@@ -1,6 +1,14 @@
+import numpy as np
+import pandas as pd
+
+
 #input: Ts(T source), Td(T drain)
 #output: Power at different delta(phase)
 def calculate_photonic_power(data, Ts, Td):
+    
+    k = 1.38065*1e-23
+    e = 1.60e-19
+    h = 6.63e-34
     P = []
     for sParams in data:
          P.append(np.trapz(1e9*h*sParams['Frequency [GHz]'][1:]*(((1/(np.exp((1e9*h*sParams['Frequency [GHz]'][1:])/(k*Ts))-1))) - ((1/(np.exp((1e9*h*sParams['Frequency [GHz]'][1:])/(k*Td))-1))))*((sParams['S21'][1:])**2),1e9*sParams['Frequency [GHz]'][1:]))

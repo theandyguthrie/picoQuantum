@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.3' 
-DESCRIPTION = 'My first Python package'
-LONG_DESCRIPTION = 'My first Python package with a slightly longer description'
+VERSION = '0.1.0' 
+DESCRIPTION = 'Package for solving quantum heat problems in the linear regime'
+LONG_DESCRIPTION = ''
 print(find_packages())
 # Setting up
 setup(
