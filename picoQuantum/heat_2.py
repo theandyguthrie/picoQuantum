@@ -1,7 +1,8 @@
+
 import numpy as np
 from scipy.integrate import simps
+import multiprocessing
 import time
-
 
 class ABCDModel():
     
@@ -34,42 +35,56 @@ class ABCDModel():
         return np.matrix([[np.cos(beta*element['l']), 1j*element['Z0']*np.sin(beta*element['l'])], [1j*Y0*np.sin(beta*element['l']), np.cos(beta*element['l'])]])
     
     
+    
+    def do_matrix_multiplication(self, j):
+        
+
+        ABCD = np.empty((len(self.omegas), 2, 2), dtype = np.complex64) 
+        self.delta = self.deltas[j]
+        
+        for i in range(0,len(self.omegas)):
+            product = [[1, 0], [0, 1]]
+            for element in self.elements:
+                elem = getattr(self, element['type'])
+                m = elem(self.omegas[i], element)
+                product = product@m
+            
+            ABCD[i] = product
+            
+            
+        return ABCD
+            
+        
+    
     def compute_ABCD(self, omegas, deltas):
         
         self.omegas = omegas   
         self.deltas = deltas
-        self.ABCD = np.empty((len(self.deltas), len(self.omegas), 2, 2), dtype = np.complex64) 
+        self.ABCD = np.empty((len(self.deltas), len(self.omegas), 2, 2), dtype = 'c') 
         
-        for j in range(0,len(deltas)):
-            self.delta = deltas[j]
-            for i in range (0,len(omegas)):
-                product = [[1, 0], [0, 1]]
-                for element in self.elements:
-                    elem = getattr(self, element['type'])
-                    m = elem(omegas[i], element)
-                    product = product@m
-                    
-                self.ABCD[j][i] = product
+        a_pool = multiprocessing.Pool(processes=3)
         
+        self.ABCD = a_pool.map(self.do_matrix_multiplication, range(0,len(deltas)))
         
+
         return self.ABCD
+    
     
     
     
     def calculate_S21(self, omegas, deltas):
         t0 = time.time()
         self.compute_ABCD(omegas,deltas)
-        print(time.time() -t0)
-        self.S21 = np.empty((len(self.deltas), len(self.omegas)), dtype = np.float64)
+        print(time.time() - t0)
+        self.S21 = np.empty((len(self.deltas), len(self.omegas)), dtype = np.float32)
         for i in range(0,len(self.ABCD)):
             for j in range(0, len(self.omegas)):
                 M = self.ABCD[i][j]
                 R = 12
-                A = M[0,0]
-                B = M[0,1]
-                C = M[1,0]
-                D = M[1,1]
-
+                A = M[0][0]
+                B = M[0][1]
+                C = M[1][0]
+                D = M[1][1]
                 self.S21[i][j] = np.abs(2/(A+B/R+R*C+D))
         return self.S21
         

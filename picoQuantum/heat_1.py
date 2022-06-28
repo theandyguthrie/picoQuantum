@@ -1,13 +1,11 @@
 import numpy as np
 from scipy.integrate import simps
-import time
-
+from sympy import MatrixSymbol, Matrix, symbols, simplify
 
 class ABCDModel():
     
     def __init__(self):
         self.elements = []
-        
         
     def add_qubit(self, Lq,Cq, name = 'name'):
         self.elements.append({'type': 'qubit', name: name, 'Lq': Lq, 'Cq':Cq})
@@ -19,47 +17,57 @@ class ABCDModel():
         self.elements.append({'type': 'TL', name: name, 'l': l, 'Z0': Z0})
     
 
-    def qubit(self, omega, element):
-        Lq = (element['Lq']/np.abs(np.cos(self.delta))*(np.sqrt(1+(0.1**2)*(np.tan(self.delta))**2)))
-        return np.matrix([[1, 0], [(1j*omega*Lq+1/(1j*omega*element['Cq']))/(1j*omega*Lq*1/(1j*omega*element['Cq'])), 1]])
-    
-    def capacitor(self, omega, element):
-        return np.matrix([[1, 1/(1j*omega*element['Cg'])], [0, 1]])
+    def qubit(self, element):
+        #Lq = 
         
-    def TL(self,omega, element):
+        return Matrix([[1 , 0],[(1j*self.omega*self.Lq+1/(1j*self.omega*element['Cq']))/(1j*self.omega*self.Lq*1/(1j*self.omega*element['Cq'])) ,1]])
+
+    
+    def capacitor(self, element):
+        return np.matrix([[1, 1/(1j*self.omega*element['Cg'])], [0, 1]])
+        
+    def TL(self, element):
         L = 405e-9
         C = 171e-12
         Y0 = 1 / element['Z0']
-        beta = omega*np.sqrt(L*C)
-        return np.matrix([[np.cos(beta*element['l']), 1j*element['Z0']*np.sin(beta*element['l'])], [1j*Y0*np.sin(beta*element['l']), np.cos(beta*element['l'])]])
+        beta = self.omega*np.sqrt(L*C)
+        return np.matrix([[(beta*element['l']), 1j*element['Z0']*(beta*element['l'])], [1j*Y0*(beta*element['l']), (beta*element['l'])]])
+        #return np.matrix([[np.cos(beta*element['l']), 1j*element['Z0']*np.sin(beta*element['l'])], [1j*Y0*np.sin(beta*element['l']), np.cos(beta*element['l'])]])
     
     
     def compute_ABCD(self, omegas, deltas):
         
+        self.Lq, self.omega = symbols('Lq omega')
         self.omegas = omegas   
         self.deltas = deltas
         self.ABCD = np.empty((len(self.deltas), len(self.omegas), 2, 2), dtype = np.complex64) 
         
+        product = Matrix([[1, 0], [0, 1]])
+        for element in self.elements:
+            elem = getattr(self, element['type'])
+            m = elem(element)
+            product = product*m
+            
+        product = simplify(product)
+        
         for j in range(0,len(deltas)):
             self.delta = deltas[j]
             for i in range (0,len(omegas)):
-                product = [[1, 0], [0, 1]]
-                for element in self.elements:
-                    elem = getattr(self, element['type'])
-                    m = elem(omegas[i], element)
-                    product = product@m
-                    
-                self.ABCD[j][i] = product
+                #temp = product.subs(self.omega, omegas[i])
+                Lq = (4.54e-9/np.abs(np.cos(self.delta))*(np.sqrt(1+(0.1**2)*(np.tan(self.delta))**2)))
+                self.ABCD[j][i] = product.xreplace({self.omega: omegas[i]}).xreplace({self.Lq: Lq})
+                print(product)
         
         
         return self.ABCD
     
     
-    
     def calculate_S21(self, omegas, deltas):
-        t0 = time.time()
+        
         self.compute_ABCD(omegas,deltas)
-        print(time.time() -t0)
+        
+
+        
         self.S21 = np.empty((len(self.deltas), len(self.omegas)), dtype = np.float64)
         for i in range(0,len(self.ABCD)):
             for j in range(0, len(self.omegas)):
